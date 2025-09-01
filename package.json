@@ -1,0 +1,23 @@
+{
+    "name": "membatron",
+    "version": "1.0.0",
+    "description": "Lightweight web-based app to convert objects in images to 3D meshes",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js",
+        "dev": "nodemon server.js"
+    },
+    "dependencies": {
+        "@fal-ai/client": "^1.6.2",
+        "cors": "^2.8.5",
+        "dotenv": "^17.2.1",
+        "express": "^5.1.0",
+        "multer": "^2.0.2"
+    },
+        "engines": {
+      "node": ">=20"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.10"
+    }
+}

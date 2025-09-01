@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object to 3D Mesh Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 2rem;
+        }
+
+        .step {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: #f7f9fc;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .step.completed {
+            border-color: #48bb78;
+            background: #f0fdf4;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .step-number {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #667eea;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+
+        .step.completed .step-number {
+            background: #48bb78;
+        }
+
+        .step-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .upload-area {
+            border: 2px dashed #cbd5e0;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .upload-area.dragover {
+            border-color: #667eea;
+            background: #edf2ff;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .button:hover {
+            background: #5a67d8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .generated-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .generated-images img {
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fed7d7;
+            color: #c53030;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .success {
+            background: #c6f6d5;
+            color: #276749;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .api-key-input {
+            margin-bottom: 1rem;
+        }
+
+        .api-key-input label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .model-link {
+            display: inline-block;
+            margin-top: 1rem;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .model-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🎨 Object to 3D Mesh Converter</h1>
+            <p class="subtitle">Transform any object in your image into a 3D model using AI</p>
+            
+
+        </div>
+
+        <!-- Step 1: Upload Image -->
+        <div class="step active" id="step1">
+            <div class="step-header">
+                <div class="step-number">1</div>
+                <div class="step-title">Upload Your Image</div>
+            </div>
+            <div class="upload-area" id="uploadArea">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e0" stroke-width="2" style="margin: 0 auto 1rem;">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <p style="color: #4a5568; font-weight: 600;">Click to upload or drag and drop</p>
+                <p style="color: #718096; font-size: 0.875rem; margin-top: 0.5rem;">Or paste from clipboard (Ctrl/Cmd + V)</p>
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            <div id="imagePreview"></div>
+        </div>
+
+        <!-- Step 2: Specify Object -->
+        <div class="step" id="step2">
+            <div class="step-header">
+                <div class="step-number">2</div>
+                <div class="step-title">Describe the Object</div>
+            </div>
+            <input type="text" id="objectDescription" placeholder="e.g., 'the red car', 'the person', 'the coffee mug'">
+            <button class="button" id="generateViews" style="margin-top: 1rem;" disabled>
+                Generate Multi-View Images
+            </button>
+        </div>
+
+        <!-- Step 3: Generate Views -->
+        <div class="step" id="step3">
+            <div class="step-header">
+                <div class="step-number">3</div>
+                <div class="step-title">Multi-View Generation</div>
+            </div>
+            <div id="viewsResult"></div>
+        </div>
+
+        <!-- Step 4: Create 3D Mesh -->
+        <div class="step" id="step4">
+            <div class="step-header">
+                <div class="step-number">4</div>
+                <div class="step-title">3D Mesh Creation</div>
+            </div>
+            
+            <!-- Advanced Options -->
+            <details style="margin: 1rem 0; padding: 1rem; background: #f9f9f9; border-radius: 8px;">
+                <summary style="cursor: pointer; font-weight: 600; margin-bottom: 1rem;">⚙️ Advanced Options</summary>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;">
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #4a5568;">File Format:</label>
+                        <select id="geometryFormat" style="width: 100%; padding: 0.5rem; border: 2px solid #e2e8f0; border-radius: 4px;">
+                            <option value="glb">GLB</option>
+                            <option value="usdz">USDZ</option>
+                            <option value="fbx">FBX</option>
+                            <option value="obj">OBJ</option>
+                            <option value="stl">STL</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #4a5568;">Material:</label>
+                        <select id="material" style="width: 100%; padding: 0.5rem; border: 2px solid #e2e8f0; border-radius: 4px;">
+                            <option value="PBR">PBR</option>
+                            <option value="Shaded">Shaded</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #4a5568;">Quality:</label>
+                        <select id="quality" style="width: 100%; padding: 0.5rem; border: 2px solid #e2e8f0; border-radius: 4px;">
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="low">Low</option>
+                            <option value="extra-low">Extra Low</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label style="display: flex; align-items: center; font-weight: 600; color: #4a5568;">
+                            <input type="checkbox" id="useHyper" style="margin-right: 0.5rem;">
+                            Use Hyper Mode
+                        </label>
+                        <small style="color: #666; font-size: 0.875rem;">Enhanced export mode</small>
+                    </div>
+                </div>
+            </details>
+            
+            <button class="button" id="create3D" style="display: none;">
+                Create 3D Mesh
+            </button>
+            <div id="meshResult"></div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedImageUrl = null;
+        let generatedViews = [];
+
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        // Paste from clipboard
+        document.addEventListener('paste', async (e) => {
+            const items = e.clipboardData.items;
+            for (let item of items) {
+                if (item.type.indexOf('image') !== -1) {
+                    const blob = item.getAsFile();
+                    handleFile(blob);
+                }
+            }
+        });
+
+        async function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+
+            // Convert to base64
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64 = e.target.result;
+                
+                // Upload to a temporary hosting service (in production, use your own backend)
+                // For this proof of concept, we'll use the data URL directly
+                uploadedImageUrl = base64;
+                
+                imagePreview.innerHTML = `<img src="${base64}" class="preview-image" alt="Uploaded image">`;
+                document.getElementById('step1').classList.add('completed');
+                document.getElementById('step2').classList.add('active');
+                checkCanProceed();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function checkCanProceed() {
+            const hasImage = uploadedImageUrl !== null;
+            const hasDescription = document.getElementById('objectDescription').value.trim() !== '';
+            
+            document.getElementById('generateViews').disabled = !(hasImage && hasDescription);
+        }
+
+        document.getElementById('objectDescription').addEventListener('input', checkCanProceed);
+
+        // Generate multi-view images
+        document.getElementById('generateViews').addEventListener('click', async () => {
+            const button = document.getElementById('generateViews');
+            const viewsResult = document.getElementById('viewsResult');
+            const objectDesc = document.getElementById('objectDescription').value.trim();
+            
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span> Generating Views...';
+            viewsResult.innerHTML = '<p style="color: #666;">Generating multi-view images of ' + objectDesc + '...</p>';
+            
+            try {
+                const response = await fetch('/api/generate-views', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        imageBase64: uploadedImageUrl,
+                        objectDescription: objectDesc
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to generate views');
+                }
+
+                // Store generated views for next step
+                generatedViews = data.views;
+                
+                // Display generated views
+                const imagesHtml = data.views.map((view, index) => 
+                    `<div>
+                        <h4>View ${index + 1}</h4>
+                        <img src="${view.url}" alt="${view.prompt}" style="max-width: 200px; border-radius: 8px;">
+                        <p style="font-size: 0.875rem; color: #666; margin-top: 0.5rem;">${view.description}</p>
+                    </div>`
+                ).join('');
+                
+                viewsResult.innerHTML = `
+                    <div class="success">
+                        <h3>✅ Multi-view images generated successfully!</h3>
+                        <div class="generated-images" style="margin-top: 1rem;">
+                            ${imagesHtml}
+                        </div>
+                    </div>
+                `;
+                
+                // Update UI state
+                document.getElementById('step2').classList.remove('active');
+                document.getElementById('step2').classList.add('completed');
+                document.getElementById('step3').classList.add('active', 'completed');
+                document.getElementById('step4').classList.add('active');
+                document.getElementById('create3D').style.display = 'inline-flex';
+                
+            } catch (error) {
+                viewsResult.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = 'Generate Multi-View Images';
+            }
+        });
+
+        // Create 3D mesh
+        document.getElementById('create3D').addEventListener('click', async () => {
+            const button = document.getElementById('create3D');
+            const meshResult = document.getElementById('meshResult');
+            
+            button.disabled = true;
+            button.innerHTML = '<span class="loading"></span> Creating 3D Mesh...';
+            meshResult.innerHTML = '<p style="color: #666;">Converting multi-view images to 3D mesh...</p>';
+            
+            try {
+                const viewUrls = generatedViews.map(view => view.url);
+                
+                // Collect advanced options
+                const advancedOptions = {
+                    geometry_file_format: document.getElementById('geometryFormat').value,
+                    material: document.getElementById('material').value,
+                    quality: document.getElementById('quality').value,
+                    use_hyper: document.getElementById('useHyper').checked
+                };
+                
+                const response = await fetch('/api/create-mesh', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        viewUrls: viewUrls,
+                        ...advancedOptions
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create 3D mesh');
+                }
+
+                const fileFormat = advancedOptions.geometry_file_format.toUpperCase();
+                meshResult.innerHTML = `
+                    <div class="success">
+                        <h3>🎉 3D Mesh Created Successfully!</h3>
+                        <p style="margin: 1rem 0;">Your 3D model is ready for download:</p>
+                        <a href="${data.meshUrl}" download="3d-model.${advancedOptions.geometry_file_format}" class="button">
+                            📥 Download 3D Model (.${fileFormat})
+                        </a>
+                        <p style="font-size: 0.875rem; color: #666; margin-top: 1rem;">
+                            You can view this .${advancedOptions.geometry_file_format} file in any 3D viewer or import it into Blender, Unity, etc.
+                        </p>
+                    </div>
+                `;
+                
+                document.getElementById('step4').classList.add('completed');
+                
+            } catch (error) {
+                meshResult.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = 'Create 3D Mesh';
+            }
+        });
+    </script>
+</body>
+</html>
